@@ -99,7 +99,7 @@ public class GedcomSort implements Gedcom.Processor {
     }
 
     private static int compareNote(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
-        return node1.getObject().getID().compareTo(node2.getObject().getID());
+        return node1.getObject().getValue().compareTo(node2.getObject().getValue());
     }
 
     private static void indisForFamily(final TreeNode<GedcomLine> fam, final Loader loader) {

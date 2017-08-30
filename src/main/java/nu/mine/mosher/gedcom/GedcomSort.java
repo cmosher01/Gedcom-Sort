@@ -18,6 +18,7 @@ import static nu.mine.mosher.logging.Jul.log;
 
 public class GedcomSort implements Gedcom.Processor {
     private final GedcomSortOptions options;
+    private GedcomTree tree;
 
     public static void main(final String... args) throws InvalidLevel, IOException {
         log();
@@ -33,6 +34,7 @@ public class GedcomSort implements Gedcom.Processor {
 
     @Override
     public boolean process(final GedcomTree tree) {
+        this.tree = tree;
         final Loader loader = new Loader(tree, "");
         loader.parse();
         sort(tree.getRoot(), loader);
@@ -42,11 +44,11 @@ public class GedcomSort implements Gedcom.Processor {
 
 
 
-    private static void sort(final TreeNode<GedcomLine> root, final Loader loader) {
+    private void sort(final TreeNode<GedcomLine> root, final Loader loader) {
         root.sort((node1, node2) -> compareTopLevelRecords(node1, node2, loader));
     }
 
-    private static int compareTopLevelRecords(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
+    private int compareTopLevelRecords(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
         int c = 0;
         if (c == 0) {
             c = compareTags(node1, node2, mapTopLevelOrder);
@@ -62,7 +64,7 @@ public class GedcomSort implements Gedcom.Processor {
             } else if (tag.equals(GedcomTag.NOTE)) {
                 c = compareNote(node1, node2, loader);
             } else if (tag.equals(GedcomTag.OBJE)) {
-                c = getTitlFromObje(node1).compareToIgnoreCase(getTitlFromObje(node2));
+                c = compareObje(node1, node2);
             }
         }
         return c;
@@ -82,9 +84,23 @@ public class GedcomSort implements Gedcom.Processor {
         return c;
     }
 
-    private static int compareFam(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
-        // TODO fix ordering of families
-        return node1.getObject().getID().compareTo(node2.getObject().getID());
+    private int compareFam(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
+        final FamPair fp1 = indisForFamily(node1);
+        final FamPair fp2 = indisForFamily(node2);
+
+        int c = 0;
+        if (fp1 == null || fp2 == null) {
+            // shouldn't happen very often
+            return c;
+        }
+
+        if (c == 0) {
+            c = compareIndi(fp1.i1, fp2.i1, loader);
+        }
+        if (c == 0) {
+            c = compareIndi(fp1.i2, fp2.i2, loader);
+        }
+        return c;
     }
 
     private static int compareSour(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
@@ -102,7 +118,16 @@ public class GedcomSort implements Gedcom.Processor {
         return node1.getObject().getValue().compareTo(node2.getObject().getValue());
     }
 
-    private static void indisForFamily(final TreeNode<GedcomLine> fam, final Loader loader) {
+    private static class FamPair {
+        TreeNode<GedcomLine> i1;
+        TreeNode<GedcomLine> i2;
+        FamPair(TreeNode<GedcomLine> i1, TreeNode<GedcomLine> i2) {
+            this.i1 = i1;
+            this.i2 = i2;
+        }
+    }
+
+    private FamPair indisForFamily(final TreeNode<GedcomLine> fam) {
         String h = "";
         String w = "";
         String c1 = "";
@@ -137,15 +162,52 @@ public class GedcomSort implements Gedcom.Processor {
             id2 = c2;
         } else {
             log().warning("FAM with less than two individuals.");
+            return null;
         }
-        TreeNode<GedcomLine> i1 = loader.getGedcom().getNode(id1);
-        TreeNode<GedcomLine> i2 = loader.getGedcom().getNode(id2);
-        // TODO put these into a strucutre, and use it to sort FAMs by (calling compareIndi for each one)
+        return new FamPair(this.tree.getNode(id1), this.tree.getNode(id2));
+    }
+
+    private int compareObje(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2) {
+        return getObjectTitle(node1).compareToIgnoreCase(getObjectTitle(node2));
+    }
+
+    private String getObjectTitle(final TreeNode<GedcomLine> obje) {
+        final GedcomLine line = obje.getObject();
+        if (!line.isPointer()) {
+            return line.getValue();
+        }
+
+        final TreeNode<GedcomLine> nodeRec = this.tree.getNode(line.getPointer());
+        if (nodeRec == null) {
+            // should never happen
+            return line.getPointer();
+        }
+
+        // find first .OBJE.FILE.TITL (GEDCOM >= 5.5.1)
+        for (final TreeNode<GedcomLine> nodeFile : nodeRec) {
+            if (nodeFile.getObject().getTag().equals(GedcomTag.FILE)) {
+                for (final TreeNode<GedcomLine> nodeTitl : nodeFile) {
+                    if (nodeTitl.getObject().getTag().equals(GedcomTag.TITL)) {
+                        return nodeTitl.getObject().getValue();
+                    }
+                }
+            }
+        }
+
+        // fall back to GEDCOM <= 5.5 .OBJE.TITL
+        for (final TreeNode<GedcomLine> nodeTitl : nodeRec) {
+            if (nodeTitl.getObject().getTag().equals(GedcomTag.TITL)) {
+                return nodeTitl.getObject().getValue();
+            }
+        }
+
+        // last resort sort by pointer
+        return nodeRec.getObject().getPointer();
     }
 
 
 
-    private static void deepSort(final TreeNode<GedcomLine> node, final Loader loader) {
+    private void deepSort(final TreeNode<GedcomLine> node, final Loader loader) {
         node.forEach(c -> deepSort(c, loader));
 
         if (node.getChildCount() > 0 && node.getObject() != null) {
@@ -168,7 +230,7 @@ public class GedcomSort implements Gedcom.Processor {
         }
     }
 
-    private static int compareIndis(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
+    private int compareIndis(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
         int c = 0;
         final Event event1 = loader.lookUpEvent(node1);
         final Event event2 = loader.lookUpEvent(node2);
@@ -192,9 +254,12 @@ public class GedcomSort implements Gedcom.Processor {
             } else {
                 c = event1.getDate().compareTo(event2.getDate());
             }
-            if (c == 0) {
-                // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
+        }
+        if (c == 0) {
+            if (node1.getObject().getTag().equals(GedcomTag.OBJE) && node2.getObject().getTag().equals(GedcomTag.OBJE)) {
+                c = compareObje(node1, node2);
             }
+            // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
         }
         return c;
     }
@@ -261,32 +326,5 @@ public class GedcomSort implements Gedcom.Processor {
             return +1;
         }
         return 0;
-    }
-
-
-
-    private static String getTitlFromObje(final TreeNode<GedcomLine> node) {
-        String titl = findChild(node, GedcomTag.TITL);
-        for (final TreeNode<GedcomLine> c : node) {
-            final String t = findChild(c, GedcomTag.TITL);
-            if (!t.isEmpty()) {
-                titl = t;
-            }
-        }
-        return titl;
-    }
-
-    private static String findChild(final TreeNode<GedcomLine> item, final GedcomTag tag) {
-        return findChild(item, tag.toString());
-    }
-
-    private static String findChild(final TreeNode<GedcomLine> item, final String tag) {
-        for (final TreeNode<GedcomLine> c : item) {
-            final GedcomLine gedcomLine = c.getObject();
-            if (gedcomLine.getTagString().equals(tag)) {
-                return gedcomLine.isPointer() ? gedcomLine.getPointer() : gedcomLine.getValue();
-            }
-        }
-        return "";
     }
 }

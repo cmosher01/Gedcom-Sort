@@ -6,6 +6,7 @@ import nu.mine.mosher.gedcom.exception.InvalidLevel;
 import nu.mine.mosher.gedcom.model.Event;
 import nu.mine.mosher.gedcom.model.Loader;
 import nu.mine.mosher.gedcom.model.Person;
+import nu.mine.mosher.gedcom.model.Source;
 import nu.mine.mosher.mopper.ArgParser;
 
 import java.io.IOException;
@@ -106,7 +107,19 @@ public class GedcomSort implements Gedcom.Processor {
     private static int compareSour(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
         int c = 0;
         if (c == 0) {
-            c = loader.lookUpSource(node1).getTitle().compareToIgnoreCase(loader.lookUpSource(node2).getTitle());
+            final Source s1 = loader.lookUpSource(node1);
+            if (s1 == null) {
+                log().severe("Cannot find source given in: "+node1);
+                return -1;
+            }
+            final String t1 = s1.getTitle();
+            final Source s2 = loader.lookUpSource(node2);
+            if (s2 == null) {
+                log().severe("Cannot find source given in: "+node2);
+                return +1;
+            }
+            final String t2 = s2.getTitle();
+            c = t1.compareToIgnoreCase(t2);
         }
         if (c == 0) {
             c = loader.lookUpSource(node1).getAuthor().compareToIgnoreCase(loader.lookUpSource(node2).getAuthor());
@@ -224,34 +237,98 @@ public class GedcomSort implements Gedcom.Processor {
                 node.sort((node1, node2) -> compareFams(node1, node2, loader));
             } else if (GedcomTag.setIndividualEvent.contains(tag) ||
                 GedcomTag.setIndividualAttribute.contains(tag) ||
-                GedcomTag.setFamilyEvent.contains(tag)) {
-                node.sort((node1, node2) -> compareTags(node1, node2, mapEventOrder));
+                GedcomTag.setFamilyEvent.contains(tag) ||
+                tag.equals(GedcomTag.NAME)) {
+                node.sort((node1, node2) -> compareEvents(node1, node2, mapEventOrder, loader));
             }
         }
     }
 
+    private int compareEvents(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Map<GedcomTag, Integer> mapOrder, final Loader loader) {
+        final Integer o1 = mapOrder.get(node1.getObject().getTag());
+        final Integer o2 = mapOrder.get(node2.getObject().getTag());
+
+        if (o1 == null && o2 == null) {
+            return 0;
+        }
+        if (o1 == null) {
+            return -1;
+        }
+        if (o2 == null) {
+            return +1;
+        }
+        if (o1 < o2) {
+            return -1;
+        }
+        if (o2 < o1) {
+            return +1;
+        }
+
+        // same tags
+        int c = 0;
+
+        // TODO handle sorting other event sub-tags (beyond SOUR)
+        if (node1.getObject().getTag().equals(GedcomTag.SOUR)) {
+            final GedcomLine lin1 = node1.getObject();
+            final GedcomLine lin2 = node2.getObject();
+
+            if (this.tree.getNode(lin1.getPointer()) == null) {
+                log().severe("Cannot find xref: "+lin1);
+            }
+            if (this.tree.getNode(lin2.getPointer()) == null) {
+                log().severe("Cannot find xref: "+lin2);
+            }
+            c = compareSour(this.tree.getNode(lin1.getPointer()), this.tree.getNode(lin2.getPointer()), loader);
+            if (c == 0) {
+                // same sources, sort by page
+                c = compareChildValues(node1, node2, GedcomTag.PAGE);
+            }
+        }
+
+        return c;
+    }
+
+    private static int compareChildValues(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final GedcomTag tag) {
+        return getChildValue(node1, tag).compareToIgnoreCase(getChildValue(node2, tag));
+    }
+
+    private static String getChildValue(final TreeNode<GedcomLine> node, final GedcomTag tag) {
+        for (final TreeNode<GedcomLine> c : node) {
+            if (c.getObject().getTag().equals(tag)) {
+                return c.getObject().getValue();
+            }
+        }
+        return "";
+    }
+
     private int compareIndis(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {
         int c = 0;
+
+        if (shouldNotBeSorted(node1, node2)) {
+            return c;
+        }
+
         final Event event1 = loader.lookUpEvent(node1);
         final Event event2 = loader.lookUpEvent(node2);
         if (event1 == null && event2 == null) {
             c = compareTags(node1, node2, mapIndiOrder);
         } else if (event1 == null) {
-            c = -1;
-            // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
+            c = -1; // sort events after non-events
         } else if (event2 == null) {
-            c = +1;
-            // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
+            c = +1; // sort events after non-events
         } else {
             final DatePeriod d1 = event1.getDate();
             final DatePeriod d2 = event2.getDate();
             if (d1 == null && d2 == null) {
                 c = 0;
             } else if (d2 == null) {
-                c = -1;
+                c = -1; // sort date-less events to bottom
+                // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
             } else if (d1 == null) {
-                c = +1;
+                c = +1; // sort date-less events to bottom
+                // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
             } else {
+                // sort events by date
                 c = event1.getDate().compareTo(event2.getDate());
             }
         }
@@ -259,9 +336,14 @@ public class GedcomSort implements Gedcom.Processor {
             if (node1.getObject().getTag().equals(GedcomTag.OBJE) && node2.getObject().getTag().equals(GedcomTag.OBJE)) {
                 c = compareObje(node1, node2);
             }
-            // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
         }
         return c;
+    }
+
+    private static boolean shouldNotBeSorted(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2) {
+        final GedcomTag tag = node1.getObject().getTag();
+        final GedcomTag tag2 = node2.getObject().getTag();
+        return tag.equals(tag2) && setDoNotSortEvents.contains(tag);
     }
 
     private static int compareFams(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2, final Loader loader) {

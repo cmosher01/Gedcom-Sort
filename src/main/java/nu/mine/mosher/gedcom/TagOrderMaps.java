@@ -1,8 +1,8 @@
 package nu.mine.mosher.gedcom;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
+import static javax.swing.UIManager.put;
 
 public final class TagOrderMaps {
     private TagOrderMaps() {
@@ -32,17 +32,18 @@ public final class TagOrderMaps {
         put(GedcomTag.CHAR, i++);
         put(GedcomTag.GEDC, i++);
 
+        put(GedcomTag.COPR, i++);
+        put(GedcomTag.SUBM, i++);
+
+        put(GedcomTag.SUBN, i++);
         put(GedcomTag.SOUR, i++);
         put(GedcomTag.DEST, i++);
-        put(GedcomTag.PLAC, i++);
-
-        put(GedcomTag.COPR, i++);
-        put(GedcomTag.SUBN, i++);
-        put(GedcomTag.SUBM, i++);
 
         put(GedcomTag.FILE, i++);
         put(GedcomTag.DATE, i++);
+
         put(GedcomTag.LANG, i++);
+        put(GedcomTag.PLAC, i++);
         put(GedcomTag.NOTE, i++);
     }});
 
@@ -131,5 +132,32 @@ public final class TagOrderMaps {
         put(GedcomTag.DATA, i++);
         put(GedcomTag.OBJE, i++);
         put(GedcomTag.NOTE, i++);
+    }});
+
+    /*
+    Multiple BIRT records represent (not multiple births, but) conflicting assertions of the birth
+    event, in priority order.
+
+    GEDCOM 5.5.1, p. 20:
+    "The occurrence of equal level numbers and equal tags within the
+    same context imply that multiple opinions or multiple values of the data exist. The significance of
+    the order in these cases is interpreted as the submitter's preference. The most preferred value
+    being the first with the least preferred data listed in subsequent lines by order of decreasing
+    preference. For example, a researcher who discovers conflicting evidence about a person's birth
+    event would list the most credible information first and the least credible or least preferred items
+    last."
+
+    But that's not true for other events such as RESI or CENS, for example. Two CENS records usually
+    imply two actual census events, not two opinions of one census event.
+     */
+    public static final Set<GedcomTag> setDoNotSortEvents = Collections.unmodifiableSet(new HashSet<GedcomTag>() {{
+        add(GedcomTag.BIRT);
+        add(GedcomTag.BAPM);
+        add(GedcomTag.CHR);
+        add(GedcomTag.BARM);
+        add(GedcomTag.BASM);
+        add(GedcomTag.DEAT);
+        add(GedcomTag.CREM);
+        add(GedcomTag.BURI);
     }});
 }

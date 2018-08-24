@@ -81,6 +81,9 @@ public class GedcomSort implements Gedcom.Processor {
         }
         if (c == 0) {
             c = loader.lookUpPerson(node1).getID().compareTo(loader.lookUpPerson(node2).getID());
+            if (c != 0) {
+                log().warning("Two individuals have same name and birth: "+node1+" and "+node2);
+            }
         }
         return c;
     }
@@ -89,12 +92,18 @@ public class GedcomSort implements Gedcom.Processor {
         final FamPair fp1 = indisForFamily(node1);
         final FamPair fp2 = indisForFamily(node2);
 
-        int c = 0;
+        // degenerate cases of families with less than two individuals:
+        if (fp1 == null && fp2 != null) {
+            return -1;
+        }
+        if (fp1 != null && fp2 == null) {
+            return +1;
+        }
         if (fp1 == null || fp2 == null) {
-            // shouldn't happen very often
-            return c;
+            return 0;
         }
 
+        int c = 0;
         if (c == 0) {
             c = compareIndi(fp1.i1, fp2.i1, loader);
         }

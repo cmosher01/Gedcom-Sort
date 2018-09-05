@@ -2,8 +2,6 @@ package nu.mine.mosher.gedcom;
 
 import java.util.*;
 
-import static javax.swing.UIManager.put;
-
 public final class TagOrderMaps {
     private TagOrderMaps() {
         throw  new IllegalStateException("never instantiated");
@@ -87,6 +85,23 @@ public final class TagOrderMaps {
         put(GedcomTag.SUBM, i++);
     }});
 
+    public static final Integer NON_PLACEABLE_EVENT;
+    public static final Map<GedcomTag, Integer> mapPlaceableEventOrder;
+    static {
+        final Map<GedcomTag, Integer> m = new HashMap<>();
+        int i = 0;
+        m.put(GedcomTag.BIRT, i++);
+        m.put(GedcomTag.CHR, i++);
+        m.put(GedcomTag.BAPM, i++);
+        NON_PLACEABLE_EVENT = i++;
+        m.put(GedcomTag.WILL, i++);
+        m.put(GedcomTag.DEAT, i++);
+        m.put(GedcomTag.CREM, i++);
+        m.put(GedcomTag.BURI, i++);
+        m.put(GedcomTag.PROB, i++);
+        mapPlaceableEventOrder = Collections.unmodifiableMap(m);
+    }
+
     public static final Map<GedcomTag, Integer> mapFamOrder = Collections.unmodifiableMap(new HashMap<GedcomTag, Integer>() {{
         int i = 0;
         put(GedcomTag.REFN, i++);
@@ -159,5 +174,6 @@ public final class TagOrderMaps {
         add(GedcomTag.DEAT);
         add(GedcomTag.CREM);
         add(GedcomTag.BURI);
+        add(GedcomTag.NAME);
     }});
 }

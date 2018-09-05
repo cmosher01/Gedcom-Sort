@@ -11,6 +11,7 @@ import nu.mine.mosher.mopper.ArgParser;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 import static nu.mine.mosher.gedcom.TagOrderMaps.*;
 import static nu.mine.mosher.logging.Jul.log;
@@ -317,28 +318,27 @@ public class GedcomSort implements Gedcom.Processor {
             return c;
         }
 
-        final Event event1 = loader.lookUpEvent(node1);
-        final Event event2 = loader.lookUpEvent(node2);
-        if (event1 == null && event2 == null) {
-            c = compareTags(node1, node2, mapIndiOrder);
-        } else if (event1 == null) {
-            c = -1; // sort events after non-events
-        } else if (event2 == null) {
-            c = +1; // sort events after non-events
-        } else {
-            final DatePeriod d1 = event1.getDate();
-            final DatePeriod d2 = event2.getDate();
-            if (d1 == null && d2 == null) {
+        c = compareTags(node1, node2, mapIndiOrder);
+
+        if (c == 0) {
+            final Event event1 = loader.lookUpEvent(node1);
+            final Event event2 = loader.lookUpEvent(node2);
+            if (event1 == null && event2 == null) {
                 c = 0;
-            } else if (d2 == null) {
-                c = -1; // sort date-less events to bottom
-                // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
-            } else if (d1 == null) {
-                c = +1; // sort date-less events to bottom
-                // TODO heuristic event ordering, such as BIRT < CHR, DEAT < PROB, DEAT < BURI, BIRT < other < DEAT
+            } else if (event1 == null) {
+                c = +1; // sort events before non-events
+            } else if (event2 == null) {
+                c = -1; // sort events before non-events
             } else {
-                // sort events by date
-                c = event1.getDate().compareTo(event2.getDate());
+                final DatePeriod d1 = event1.getDate();
+                final DatePeriod d2 = event2.getDate();
+                c = 0;
+                if (d1 != null && d2 != null) {
+                    c = d1.compareTo(d2);
+                }
+                if (c == 0) {
+                    c = compareEventsHeuristically(node1, node2);
+                }
             }
         }
         if (c == 0) {
@@ -346,7 +346,21 @@ public class GedcomSort implements Gedcom.Processor {
                 c = compareObje(node1, node2);
             }
         }
+
         return c;
+    }
+
+    private static int compareEventsHeuristically(TreeNode<GedcomLine> node1, TreeNode<GedcomLine> node2) {
+        final int order1 = heuristicPosition(node1.getObject().getTag());
+        final int order2 = heuristicPosition(node2.getObject().getTag());
+        return Integer.compare(order1, order2);
+    }
+
+    private static int heuristicPosition(final GedcomTag tag) {
+        if (Objects.isNull(tag) || tag.equals(GedcomTag.UNKNOWN) || !mapPlaceableEventOrder.containsKey(tag)) {
+            return NON_PLACEABLE_EVENT;
+        }
+        return mapPlaceableEventOrder.get(tag);
     }
 
     private static boolean shouldNotBeSorted(final TreeNode<GedcomLine> node1, final TreeNode<GedcomLine> node2) {
@@ -405,10 +419,10 @@ public class GedcomSort implements Gedcom.Processor {
             return 0;
         }
         if (o1 == null) {
-            return -1;
+            return +1;
         }
         if (o2 == null) {
-            return +1;
+            return -1;
         }
         if (o1 < o2) {
             return -1;

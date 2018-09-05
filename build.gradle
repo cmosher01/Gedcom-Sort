@@ -8,7 +8,7 @@ mainClassName = 'nu.mine.mosher.gedcom.GedcomSort'
 repositories {
     mavenCentral()
     maven {
-        url 'http://mosher.mine.nu/nexus/repository/maven-public/'
+        url 'https://mosher.mine.nu/nexus/repository/maven-public/'
     }
 }
 

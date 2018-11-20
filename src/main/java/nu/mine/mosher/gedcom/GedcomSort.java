@@ -184,7 +184,7 @@ public class GedcomSort implements Gedcom.Processor {
             id1 = c1;
             id2 = c2;
         } else {
-            log().warning("FAM with less than two individuals.");
+            log().warning("FAM with less than two individuals: "+fam.getObject().getID());
             return null;
         }
         return new FamPair(this.tree.getNode(id1), this.tree.getNode(id2));

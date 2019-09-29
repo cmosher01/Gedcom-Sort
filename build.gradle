@@ -6,6 +6,7 @@ version '1.0.0-SNAPSHOT'
 mainClassName = 'nu.mine.mosher.gedcom.GedcomSort'
 
 repositories {
+    mavenLocal()
     mavenCentral()
     jcenter()
 }

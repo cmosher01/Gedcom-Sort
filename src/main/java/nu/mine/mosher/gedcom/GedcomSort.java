@@ -19,19 +19,17 @@ import static nu.mine.mosher.logging.Jul.log;
 // Created by Christopher Alan Mosher on 2017-08-25
 
 public class GedcomSort implements Gedcom.Processor {
-    private final GedcomSortOptions options;
     private GedcomTree tree;
 
     public static void main(final String... args) throws InvalidLevel, IOException {
         log();
         final GedcomSortOptions options = new ArgParser<>(new GedcomSortOptions()).parse(args).verify();
-        new Gedcom(options, new GedcomSort(options)).main();
+        new Gedcom(options, new GedcomSort()).main();
         System.out.flush();
         System.err.flush();
     }
 
-    private GedcomSort(final GedcomSortOptions options) {
-        this.options = options;
+    private GedcomSort() {
     }
 
     @Override
@@ -184,7 +182,6 @@ public class GedcomSort implements Gedcom.Processor {
             id1 = c1;
             id2 = c2;
         } else {
-            log().warning("FAM with less than two individuals: "+fam.getObject().getID());
             return null;
         }
         return new FamPair(this.tree.getNode(id1), this.tree.getNode(id2));

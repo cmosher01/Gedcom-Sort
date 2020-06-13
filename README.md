@@ -6,3 +6,6 @@ Copyright © 2017–2018, Christopher Alan Mosher, Shelton, Connecticut, USA, <c
 [![License](https://img.shields.io/github/license/cmosher01/Gedcom-Sort.svg)](https://www.gnu.org/licenses/gpl.html)
 
 Sorts GEDCOM files.
+
+Uses a sophisticated, general-purpose, algorithm to deterministically sort
+all lines in a GEDCOM file.

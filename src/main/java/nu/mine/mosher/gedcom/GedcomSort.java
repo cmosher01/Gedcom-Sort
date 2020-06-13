@@ -330,7 +330,7 @@ public class GedcomSort implements Gedcom.Processor {
                 final DatePeriod d1 = event1.getDate();
                 final DatePeriod d2 = event2.getDate();
                 c = 0;
-                if (d1 != null && d2 != null) {
+                if (d1 != null && !d1.equals(DatePeriod.UNKNOWN) && d2 != null && !d2.equals(DatePeriod.UNKNOWN)) {
                     c = d1.compareTo(d2);
                 }
                 if (c == 0) {
@@ -395,6 +395,7 @@ public class GedcomSort implements Gedcom.Processor {
         } else {
             final DatePeriod d1 = event1.getDate();
             final DatePeriod d2 = event2.getDate();
+            // TODO: heuristic sorting for family events with no dates (similar to inidividual events)
             if (d1 == null && d2 == null) {
                 c = 0;
             } else if (d2 == null) {

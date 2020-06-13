@@ -330,7 +330,7 @@ public class GedcomSort implements Gedcom.Processor {
                 final DatePeriod d1 = event1.getDate();
                 final DatePeriod d2 = event2.getDate();
                 c = 0;
-                if (d1 != null && !d1.equals(DatePeriod.UNKNOWN) && d2 != null && !d2.equals(DatePeriod.UNKNOWN)) {
+                if (d1 != null && d2 != null && !(d1.equals(DatePeriod.UNKNOWN) && d2.equals(DatePeriod.UNKNOWN))) {
                     c = d1.compareTo(d2);
                 }
                 if (c == 0) {
